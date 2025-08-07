@@ -66,24 +66,32 @@ Generate a complete parser function for the bank statement.
 
 Requirements:
 - Function: def parse(pdf_path: str) -> pd.DataFrame
-- Use pdfplumber to extract table rows
-- Try both `page.extract_table()` and `page.extract_text()` if needed
-- Output must match columns: {analysis['csv_schema']['columns']}
-- Use regex to extract structured lines if tables fail
-- Skip header/footer lines or garbage rows
+- Use pdfplumber to extract data from PDF
+- Try both extract_table() and extract_text() with regex fallback
+- Skip header/footer and non-transaction rows
+- Output must match this exact column schema: {analysis['csv_schema']['columns']}
+- Convert all numeric values to float properly (handle commas, ₹, empty strings)
+- Strip whitespace, clean dates and text descriptions
+- Truncate or pad lists to ensure equal lengths before DataFrame creation
 - Use try/except Exception for error handling
-- Ensure equal-length column lists before DataFrame creation
-- Do NOT use pdfplumber.PDFParserError (not a real exception)
-- Return at least 3 extracted rows (or empty DataFrame if truly nothing usable)
-- Include `print()` statements to debug number of rows found
+- Return at least 3 parsed rows or an empty DataFrame
+- Print the number of rows parsed for debug
+
+Avoid:
+- pdfplumber.PDFParserError (not valid)
+- returning None
+
+Examples:
+- '1,000.00' → 1000.00 (float)
+- ' ₹2,345.00 ' → 2345.00
 
 PLAN:
 {plan}
 
-Prior Errors:
+Last Errors:
 {state.errors[-1] if state.errors else 'None'}
 
-Output only code.
+Only return code. No explanation.
 """
 
     def clean_code(self, code: str) -> str:
