@@ -71,10 +71,11 @@ Requirements:
 - Clean data: strip whitespace, remove ₹, commas, etc.
 - Convert numbers safely with try/except; set to 0.0 if not float
 - Skip rows if any value is: '', 'Debit Amt', 'Credit Amt', 'Balance'
-- Skip malformed rows (wrong number of fields)
-- Before DataFrame creation, truncate lists to same length
-- Return pd.DataFrame with consistent length and correct column names
+- Skip rows shorter than expected (e.g., len(row) < 5)
+- Before accessing row[0], row[1], etc., check len(row) >= 5
+- Catch and skip ValueError, IndexError when processing rows
 - Print how many rows were extracted and cleaned
+- Ensure final column lists are equal length
 
 Disallowed:
 - pdfplumber.PDFParserError
