@@ -12,7 +12,7 @@ import subprocess
 import traceback
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 import pandas as pd
@@ -37,8 +37,8 @@ class AgentState:
     attempts: int = 0
     max_attempts: int = 3
     current_code: str = ""
-    errors: List[str] = []
-    test_results: List[Dict] = []
+    errors: List[str] = field(default_factory=list)
+    test_results: List[Dict] = field(default_factory=list)
     success: bool = False
 
 class BankParserAgent:

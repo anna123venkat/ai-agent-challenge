@@ -6,7 +6,11 @@ Run this to test your setup before the main challenge
 
 import os
 import sys
+from dotenv import load_dotenv
 from pathlib import Path
+
+# Load environment variables
+load_dotenv()
 
 def check_setup():
     """Check if the environment is properly set up"""
