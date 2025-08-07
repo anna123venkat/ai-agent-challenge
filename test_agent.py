@@ -5,7 +5,6 @@ Run this to test your setup before the main challenge
 """
 
 import os
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 import sys
 from pathlib import Path
 
@@ -72,6 +71,8 @@ def check_setup():
     # Test Groq connection
     try:
         from groq import Groq
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
 
         # Quick test call
         response = client.chat.completions.create(
