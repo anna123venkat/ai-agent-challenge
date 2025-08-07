@@ -110,7 +110,7 @@ class BankParserAgent:
                 
             elif self.provider == LLMProvider.GROQ:
                 response = self.llm.chat.completions.create(
-                    model="llama-3.1-70b-versatile",  # Fast and capable model
+                    model="llama3-70b-8192",  # Fast and capable model
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=4000,
                     temperature=0.1  # Lower temperature for more consistent code generation
@@ -288,8 +288,9 @@ print("✅ Parser test passed!")
             
             # Save test script temporarily
             test_file = Path("temp_test.py")
-            with open(test_file, 'w') as f:
+            with open(test_file, 'w', encoding='utf-8') as f:
                 f.write(test_code)
+
             
             # Run the test
             result = subprocess.run(
@@ -351,7 +352,7 @@ print("✅ Parser test passed!")
         # Initialize state
         state = AgentState(
             bank_name=bank_name,
-            pdf_path=Path(f"data/{bank_name}/{bank_name}_sample.pdf"),
+            pdf_path=Path(f"data/{bank_name}/{bank_name} sample.pdf"),
             csv_path=Path(f"data/{bank_name}/result.csv"),
             parser_path=Path(f"custom_parsers/{bank_name}_parser.py")
         )
