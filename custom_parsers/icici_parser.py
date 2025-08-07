@@ -3,26 +3,45 @@ import re
 import pandas as pd
 
 def parse(pdf_path: str) -> pd.DataFrame:
-    pdf = pdfplumber.open(pdf_path)
-    data = []
-    for page in pdf.pages:
-        try:
-            tables = page.extract_table()
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            pages = [page.extract_text() for page in pdf.pages]
+            text = '\n'.join(pages)
+            
+            # Remove header and footer
+            text = re.sub(r'Page [0-9]+ of [0-9]+', '', text)
+            text = re.sub(r'Statement [A-Za-z0-9\s]+', '', text)
+            
+            # Extract table using pdfplumber
+            tables = []
+            for page in pdf.pages:
+                tables.extend(page.extract_table())
+            
+            # Fallback to regex if table extraction fails
+            if not tables:
+                rows = [row.split() for row in text.split('\n')]
+                tables = [rows]
+            
+            # Clean and process table data
+            data = []
             for table in tables:
                 for row in table[1:]:  # skip header
-                    data.append(row)
-        except Exception:
-            text = page.extract_text()
-            lines = text.split('\n')
-            for line in lines:
-                match = re.match(r'(\d{1,2}/\d{1,2}/\d{4})\s+([\w\s]+)\s+(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s+(-?\d+\.?\d*)', line)
-                if match:
-                    data.append(list(match.groups()))
-    if len(data) < 3:
-        return pd.DataFrame()
-    columns = ['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance']
-    if len(set(len(row) for row in data)) != 1:
-        raise ValueError("Inconsistent row lengths")
-    df = pd.DataFrame(data, columns=columns)
-    print(f"Found {len(df)} rows")
-    return df
+                    if len(row) == 5:  # skip non-transaction rows
+                        date = re.sub(r'[^\d-]', '', row[0])
+                        desc = ' '.join(row[1:-2])
+                        debit = float(re.sub(r'[^\d\.]', '', row[-2]).replace(',', ''))
+                        credit = float(re.sub(r'[^\d\.]', '', row[-1]).replace(',', ''))
+                        balance = float(re.sub(r'[^\d\.]', '', row[-1]).replace(',', ''))
+                        data.append([date, desc, debit, credit, balance])
+            
+            # Create DataFrame and return
+            if len(data) >= 3:
+                df = pd.DataFrame(data, columns=['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance'])
+                print(f"Parsed {len(df)} rows")
+                return df
+            else:
+                return pd.DataFrame(columns=['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance'])
+    
+    except Exception as e:
+        print(f"Error parsing PDF: {e}")
+        return pd.DataFrame(columns=['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance'])

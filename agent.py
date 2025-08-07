@@ -62,36 +62,29 @@ class BankParserAgent:
 
     def generate_code_prompt(self, state: AgentState, analysis: Dict, plan: str) -> str:
         return f"""
-Generate a complete parser function for the bank statement.
+Generate a complete Python parser for the bank statement.
 
 Requirements:
 - Function: def parse(pdf_path: str) -> pd.DataFrame
-- Use pdfplumber to extract data from PDF
-- Try both extract_table() and extract_text() with regex fallback
-- Skip header/footer and non-transaction rows
-- Output must match this exact column schema: {analysis['csv_schema']['columns']}
-- Convert all numeric values to float properly (handle commas, ₹, empty strings)
-- Strip whitespace, clean dates and text descriptions
-- Truncate or pad lists to ensure equal lengths before DataFrame creation
-- Use try/except Exception for error handling
-- Return at least 3 parsed rows or an empty DataFrame
-- Print the number of rows parsed for debug
+- Use pdfplumber to extract tables or text
+- Must match columns: {analysis['csv_schema']['columns']}
+- Clean data: strip whitespace, remove ₹, commas, etc.
+- Convert numbers safely with try/except; set to 0.0 if not float
+- Skip rows if any value is: '', 'Debit Amt', 'Credit Amt', 'Balance'
+- Skip malformed rows (wrong number of fields)
+- Before DataFrame creation, truncate lists to same length
+- Return pd.DataFrame with consistent length and correct column names
+- Print how many rows were extracted and cleaned
 
-Avoid:
-- pdfplumber.PDFParserError (not valid)
-- returning None
+Disallowed:
+- pdfplumber.PDFParserError
+- Returning None
+- Crashing on bad rows
 
-Examples:
-- '1,000.00' → 1000.00 (float)
-- ' ₹2,345.00 ' → 2345.00
-
-PLAN:
-{plan}
-
-Last Errors:
+Last Error:
 {state.errors[-1] if state.errors else 'None'}
 
-Only return code. No explanation.
+Only return complete code.
 """
 
     def clean_code(self, code: str) -> str:
