@@ -264,8 +264,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from custom_parsers.{state.bank_name}_parser import parse
 
 # Test the parser
-pdf_path = "{state.pdf_path}"
-expected_csv_path = "{state.csv_path}"
+pdf_path = r"{state.pdf_path.as_posix()}"
+expected_csv_path = r"{state.csv_path.as_posix()}"
 
 # Parse the PDF
 result_df = parse(pdf_path)

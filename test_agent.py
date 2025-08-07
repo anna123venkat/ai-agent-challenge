@@ -80,7 +80,7 @@ def check_setup():
 
         # Quick test call
         response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="llama3-70b-8192",
             messages=[{"role": "user", "content": "Say 'API working' in 3 words"}],
             max_tokens=10
         )
