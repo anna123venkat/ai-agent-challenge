@@ -190,6 +190,7 @@ class BankParserAgent:
         - Must return a DataFrame with these exact columns: {analysis['csv_schema']['columns']}
         - Use appropriate PDF parsing library (pdfplumber recommended)
         - Handle errors gracefully
+        - Ensure all column lists are of equal length before creating the DataFrame
         - Include proper imports
         
         Plan to follow:
@@ -264,8 +265,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from custom_parsers.{state.bank_name}_parser import parse
 
 # Test the parser
-pdf_path = r"{state.pdf_path.as_posix()}"
-expected_csv_path = r"{state.csv_path.as_posix()}"
+pdf_path = "{state.pdf_path.as_posix()}"
+expected_csv_path = "{state.csv_path.as_posix()}"
 
 # Parse the PDF
 result_df = parse(pdf_path)
@@ -283,7 +284,7 @@ if list(result_df.columns) != list(expected_df.columns):
     print(f"Column mismatch: {{list(result_df.columns)}} != {{list(expected_df.columns)}}")
     sys.exit(1)
 
-print("✅ Parser test passed!")
+print(" Parser test passed!")
 """
             
             # Save test script temporarily

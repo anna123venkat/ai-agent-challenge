@@ -1,57 +1,60 @@
 import pdfplumber
 import re
 import pandas as pd
-import logging
 import numpy as np
+from datetime import datetime
 
-logging.basicConfig(level=logging.ERROR)
-
-class PDFParsingError(Exception):
-    pass
-
-def parse_pdf(pdf_path):
-    try:
-        with pdfplumber.open(pdf_path) as pdf:
-            text = ''
-            for page in pdf.pages:
-                text += page.extract_text()
-            return text
-    except Exception as e:
-        logging.error(f"Error parsing PDF: {e}")
-        raise PDFParsingError("Error parsing PDF")
+def extract_text(pdf_path):
+    with pdfplumber.open(pdf_path) as pdf:
+        text = ''
+        for page in pdf.pages:
+            text += page.extract_text()
+        return text
 
 def extract_columns(text):
-    date_pattern = r'\d{2}-\d{2}-\d{4}'
-    desc_pattern = r'[A-Za-z\s]+'
-    debit_pattern = r'-\d+(\.\d+)?'
-    credit_pattern = r'\+\d+(\.\d+)?'
-    balance_pattern = r'\d+(\.\d+)?'
-    
-    dates = re.findall(date_pattern, text)
-    descs = re.findall(desc_pattern, text)
-    debits = re.findall(debit_pattern, text)
-    credits = re.findall(credit_pattern, text)
-    balances = re.findall(balance_pattern, text)
-    
-    return dates, descs, debits, credits, balances
+    dates = re.findall(r'\b\d{1,2}-\d{1,2}-\d{4}\b', text)
+    descriptions = re.findall(r'[A-Za-z\s]+', text)
+    debit_amts = re.findall(r'\b\d+(\.\d+)?\b', text)
+    credit_amts = re.findall(r'\b\d+(\.\d+)?\b', text)
+    balances = re.findall(r'\b\d+(\.\d+)?\b', text)
+    return dates, descriptions, debit_amts, credit_amts, balances
 
 def clean_and_validate(data):
-    dates, descs, debits, credits, balances = data
-    debits = [float(debit.lstrip('-')) for debit in debits]
-    credits = [float(credit.lstrip('+')) for credit in credits]
-    balances = [float(balance) for balance in balances]
-    return list(zip(dates, descs, debits, credits, balances))
+    dates, descriptions, debit_amts, credit_amts, balances = data
+    dates = [datetime.strptime(date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in dates]
+    descriptions = [desc.strip() for desc in descriptions]
+    debit_amts = [float(amt) if amt else np.nan for amt in debit_amts]
+    credit_amts = [float(amt) if amt else np.nan for amt in credit_amts]
+    balances = [float(bal) if bal else np.nan for bal in balances]
+    max_len = max(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
+    dates.extend([np.nan] * (max_len - len(dates)))
+    descriptions.extend([np.nan] * (max_len - len(descriptions)))
+    debit_amts.extend([np.nan] * (max_len - len(debit_amts)))
+    credit_amts.extend([np.nan] * (max_len - len(credit_amts)))
+    balances.extend([np.nan] * (max_len - len(balances)))
+    return dates, descriptions, debit_amts, credit_amts, balances
 
-def parse(pdf_path: str) -> pd.DataFrame:
+def create_dataframe(data):
+    dates, descriptions, debit_amts, credit_amts, balances = data
+    df = pd.DataFrame({
+        'Date': dates,
+        'Description': descriptions,
+        'Debit Amt': debit_amts,
+        'Credit Amt': credit_amts,
+        'Balance': balances
+    })
+    return df
+
+def parse(pdf_path):
     try:
-        text = parse_pdf(pdf_path)
+        text = extract_text(pdf_path)
         data = extract_columns(text)
         data = clean_and_validate(data)
-        df = pd.DataFrame(data, columns=['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance'])
-        df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
-        df.replace('', np.nan, inplace=True)
-        df.fillna(np.nan, inplace=True)
+        df = create_dataframe(data)
         return df
-    except Exception as e:
-        logging.error(f"Error parsing PDF: {e}")
-        return pd.DataFrame(columns=['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance'])
+    except pdfplumber.PDFParserError as e:
+        return f"Error parsing PDF file: {e}"
+    except ValueError as e:
+        return f"Error creating DataFrame: {e}"
+    except AttributeError as e:
+        return f"Error manipulating DataFrame: {e}"
