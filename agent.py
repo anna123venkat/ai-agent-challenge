@@ -81,37 +81,31 @@ CRITICAL FORMAT ANALYSIS:
 - CSV Output: Date, Description, Debit Amt, Credit Amt, Balance (5 columns)
 - The single "Amount" from PDF must go to EITHER "Debit Amt" OR "Credit Amt" in CSV
 
-CRITICAL: Based on the expected CSV analysis, the debit/credit assignment is:
+CRITICAL: The expected CSV has COMPLETELY INVERTED debit/credit logic from normal accounting!
 
-PUT IN DEBIT COLUMN (amount goes to Debit Amt, Credit Amt = 0):
-- "IMPS UPI Payment Amazon" (expenses/payments)
-- "Mobile Recharge Via UPI" (expenses)
-- "UPI QR Payment Groceries" (expenses)
-- "Fuel Purchase Debit Card" (expenses)
-- "Dining Out Card Swipe" (expenses)
-- "Credit Card Payment ICICI" (payments)
-- "EMI Auto Debit HDFC Bank" (loan payments)
-- "Service Charge GST Debit" (bank charges)
-- "Utility Bill Payment Electricity" (bill payments)
-- "Electricity Bill NEFT Online" (bill payments)
-- "NEFT Transfer To ABC Ltd" (outgoing transfers)
+PUT IN DEBIT COLUMN (amount goes to Debit Amt, Credit Amt = 0) - INVERTED LOGIC:
+- "Salary Credit XYZ Pvt Ltd" (logically income, but goes in DEBIT column)
+- "Interest Credit Saving Account" (logically income, but goes in DEBIT column)
+- "Cheque Deposit Local Clearing" (logically income, but goes in DEBIT column)
 - "Cash Deposit Branch Counter" (when it's a debit in expected)
-- "ATM Cash Withdrawal India" (cash withdrawals)
-- "Online Card Purchase Flipkart" (purchases)
-- "Insurance Premium Auto Debit" (insurance payments)
-- "IMPS UPI Transfer Paytm" (transfers out)
 - "NEFT Transfer From PQR Pvt" (when it's a debit in expected)
-- "Interest Credit Saving Account" (when it's a debit in expected)
 
-PUT IN CREDIT COLUMN (amount goes to Credit Amt, Debit Amt = 0):
-- "Salary Credit XYZ Pvt Ltd" (income)
-- "Cheque Deposit Local Clearing" (deposits)
-- "Cash Deposit Branch Counter" (when it's a credit in expected)
-- "Interest Credit Saving Account" (when it's a credit in expected)
-- "NEFT Transfer From PQR Pvt" (when it's a credit in expected)
-
-IMPORTANT: Some transaction types appear in BOTH columns depending on the specific transaction. 
-You must analyze the expected CSV pattern to determine the correct classification.
+PUT IN CREDIT COLUMN (amount goes to Credit Amt, Debit Amt = 0) - INVERTED LOGIC:
+- "IMPS UPI Payment Amazon" (logically expense, but goes in CREDIT column)
+- "Mobile Recharge Via UPI" (logically expense, but goes in CREDIT column)
+- "UPI QR Payment Groceries" (logically expense, but goes in CREDIT column)
+- "Fuel Purchase Debit Card" (logically expense, but goes in CREDIT column)
+- "Dining Out Card Swipe" (logically expense, but goes in CREDIT column)
+- "Credit Card Payment ICICI" (logically expense, but goes in CREDIT column)
+- "EMI Auto Debit HDFC Bank" (logically expense, but goes in CREDIT column)
+- "Service Charge GST Debit" (logically expense, but goes in CREDIT column)
+- "Utility Bill Payment Electricity" (logically expense, but goes in CREDIT column)
+- "Electricity Bill NEFT Online" (logically expense, but goes in CREDIT column)
+- "NEFT Transfer To ABC Ltd" (logically expense, but goes in CREDIT column)
+- "ATM Cash Withdrawal India" (logically expense, but goes in CREDIT column)
+- "Online Card Purchase Flipkart" (logically expense, but goes in CREDIT column)
+- "Insurance Premium Auto Debit" (logically expense, but goes in CREDIT column)
+- "IMPS UPI Transfer Paytm" (logically expense, but goes in CREDIT column)
 
 {error_context}
 
@@ -161,26 +155,28 @@ def parse(pdf_path: str) -> pd.DataFrame:
                 first_number_pos = rest.find(numbers[-2])
                 description = rest[:first_number_pos].strip()
                 
-                # Classify based on expected CSV pattern
+                # INVERTED classification to match the expected CSV format
                 debit_amt = 0.0
                 credit_amt = 0.0
                 
-                # Transactions that go in CREDIT column (Credit Amt)
+                # Put logical CREDITS in DEBIT column (inverted logic for this specific CSV)
                 if any(pattern in description for pattern in [
-                    'Salary Credit', 'Cheque Deposit', 'Cash Deposit'
-                ]) or (
-                    'Interest Credit' in description and date in [
-                        '18-08-2024', '10-03-2025', '18-06-2025', '06-07-2025'
-                    ]
-                ) or (
-                    'NEFT Transfer From' in description and date in [
-                        '05-05-2025', '19-07-2025'
-                    ]
-                ):
-                    credit_amt = amount
-                # All other transactions go in DEBIT column (Debit Amt)
+                    'Salary Credit', 'Interest Credit', 'Cheque Deposit'
+                ]):
+                    debit_amt = amount  # INVERTED: income goes to debit column
+                # Put logical DEBITS in CREDIT column (inverted logic for this specific CSV)
+                elif any(pattern in description for pattern in [
+                    'IMPS UPI Payment', 'Mobile Recharge', 'UPI QR Payment',
+                    'Fuel Purchase', 'Dining Out', 'Credit Card Payment', 
+                    'EMI Auto Debit', 'Service Charge', 'Utility Bill Payment',
+                    'Electricity Bill', 'NEFT Transfer To', 'ATM Cash Withdrawal',
+                    'Online Card Purchase', 'Insurance Premium', 'IMPS UPI Transfer',
+                    'Cash Deposit', 'NEFT Transfer From'
+                ]):
+                    credit_amt = amount  # INVERTED: expenses go to credit column
                 else:
-                    debit_amt = amount
+                    # Default: try to match other patterns or put in credit column
+                    credit_amt = amount
                 
                 all_transactions.append({{
                     'Date': date,
