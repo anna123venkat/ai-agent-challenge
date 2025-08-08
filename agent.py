@@ -191,8 +191,6 @@ CRITICAL DISCOVERY from CSV analysis:
                     continue
 
                 expected_df = pd.read_csv(csv_path)
-
-                # 🔧 FIX: Ensure identical column order before comparison
                 common_cols = ['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance']
                 df = df[common_cols].reset_index(drop=True)
                 expected_df = expected_df[common_cols].reset_index(drop=True)
