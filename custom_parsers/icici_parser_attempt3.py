@@ -18,11 +18,11 @@ def parse(pdf_path):
                 if not line or 'Powered by' in line:
                     continue
                 parts = re.split(r'\s{2,}', line)
-                if len(parts) < 5:
+                if len(parts) < 4:
                     continue
                 date = parts[0]
-                description = ' '.join(parts[1:-3])
-                amounts = list(map(float, parts[-3:]))
+                desc = ' '.join(parts[1:-3])
+                amounts = [float(x) for x in parts[-3:]]
                 if amounts[0] > 0:
                     debit_amts.append(amounts[0])
                     credit_amts.append(0)
@@ -31,7 +31,7 @@ def parse(pdf_path):
                     credit_amts.append(-amounts[0])
                 balances.append(amounts[1])
                 dates.append(date)
-                descriptions.append(description)
+                descriptions.append(desc)
     
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]

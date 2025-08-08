@@ -103,6 +103,19 @@ Generate a minimal Python function named `parse` that parses an ICICI bank state
 CRITICAL DISCOVERY from CSV analysis:
 {csv_pattern}
 
+Example of a valid transaction line from the PDF:
+"01-08-2024 Salary Credit XYZ Pvt Ltd 1935.30 0.00 6864.58"
+
+Expected extraction:
+- Date: 01-08-2024
+- Description: Salary Credit XYZ Pvt Ltd
+- Debit Amt: 1935.30
+- Credit Amt: 0.00
+- Balance: 6864.58
+
+IMPORTANT: Do NOT extract headers, footers, lines without 5 columns, or empty lines.
+
+
 {trim_instructions.strip()}
 """
 
