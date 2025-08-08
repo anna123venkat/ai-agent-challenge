@@ -1,36 +1,37 @@
-import os
-import re
-import pdfminer
-from pdfminer.high_level import extract_text
+import pdfplumber
 import pandas as pd
 
-def parse_icici_bank_statement(pdf_file_path):
-    # Extract text from PDF file
-    text = extract_text(pdf_file_path)
+def parse_icici_bank_statement(pdf_file):
+    dates = []
+    descriptions = []
+    debit_amts = []
+    credit_amts = []
+    balances = []
 
-    # Regular expressions to extract relevant information
-    date_pattern = r'\d{2}-\w{3}-\d{4}'
-    desc_pattern = r'[^:]+(?=:)'
-    debit_pattern = r'Debit\s+Amount\s+Rs.\s+(\d+(?:\.\d+)?)(?=\s+Credit)'
-    credit_pattern = r'Credit\s+Amount\s+Rs.\s+(\d+(?:\.\d+)?)(?=\s+Debit)'
-    balance_pattern = r'Balance\s+Rs.\s+(\d+(?:\.\d+)?)'
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            lines = text.split('\n')
+            for line in lines:
+                if 'Date' in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                date = ' '.join(parts[:3])
+                description = ' '.join(parts[3:-3])
+                amount = float(parts[-2].replace(',', ''))
+                balance = float(parts[-1].replace(',', ''))
+                if amount > 0:
+                    debit_amts.append(0)
+                    credit_amts.append(amount)
+                else:
+                    debit_amts.append(-amount)
+                    credit_amts.append(0)
+                dates.append(date)
+                descriptions.append(description)
+                balances.append(balance)
 
-    # Extract dates
-    dates = re.findall(date_pattern, text)
-
-    # Extract descriptions
-    descriptions = re.findall(desc_pattern, text)
-
-    # Extract debit amounts
-    debit_amts = re.findall(debit_pattern, text)
-
-    # Extract credit amounts
-    credit_amts = re.findall(credit_pattern, text)
-
-    # Extract balances
-    balances = re.findall(balance_pattern, text)
-
-    # Trim lists to same minimum length
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]
     descriptions = descriptions[:min_len]
@@ -38,7 +39,6 @@ def parse_icici_bank_statement(pdf_file_path):
     credit_amts = credit_amts[:min_len]
     balances = balances[:min_len]
 
-    # Create DataFrame
     df = pd.DataFrame({
         'Date': dates,
         'Description': descriptions,
@@ -46,14 +46,12 @@ def parse_icici_bank_statement(pdf_file_path):
         'Credit Amt': credit_amts,
         'Balance': balances
     })
-
     return df
-
-# Example usage
-pdf_file_path = 'path/to/icici_bank_statement.pdf'
-df = parse_icici_bank_statement(pdf_file_path)
-print(df)
 ```
-This parser uses regular expressions to extract dates, descriptions, debit amounts, credit amounts, and balances from the PDF text. It then trims the lists to the same minimum length and creates a Pandas DataFrame with the extracted information.
+This parser uses the `pdfplumber` library to extract text from the PDF file, and then processes the text to extract the relevant information. It assumes that the PDF file has a specific format, where each transaction is represented by a line with the following format:
+```
+Date Description ... Amount Balance
+```
+The parser extracts the date, description, amount, and balance from each line, and then determines whether the transaction is a debit or credit based on the sign of the amount. Finally, it creates a Pandas DataFrame from the extracted data and returns it.
 
-Note that this parser assumes that the PDF file has a specific structure, with dates, descriptions, debit amounts, credit amounts, and balances appearing in a specific order. If the structure of the PDF file is different, the regular expressions may need to be adjusted accordingly.
+Note that this parser may need to be modified to handle variations in the PDF file format or content.

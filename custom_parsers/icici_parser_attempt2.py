@@ -1,54 +1,37 @@
-import os
-import re
-import pdfminer
-from pdfminer.high_level import extract_text
+import pdfplumber
 import pandas as pd
 
-def parse_icici_bank_statement(pdf_file_path):
-    # Extract text from PDF
-    text = extract_text(pdf_file_path)
-
-    # Regular expressions to extract relevant information
-    date_pattern = r'\d{2}-\w{3}-\d{4}'
-    desc_pattern = r'[A-Za-z\s\.]+'
-    amt_pattern = r'\d+(\.\d{2})?'
-
-    # Initialize lists to store extracted data
+def parse_icici_bank_statement(pdf_file):
     dates = []
     descriptions = []
     debit_amts = []
     credit_amts = []
     balances = []
 
-    # Iterate through the text and extract relevant information
-    for line in text.split('\n'):
-        # Extract date
-        date_match = re.search(date_pattern, line)
-        if date_match:
-            dates.append(date_match.group())
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            lines = text.split('\n')
+            for line in lines:
+                if 'Date' in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                date = ' '.join(parts[:3])
+                description = ' '.join(parts[3:-3])
+                amount = float(parts[-2].replace(',', ''))
+                balance = float(parts[-1].replace(',', ''))
+                if amount > 0:
+                    debit_amts.append(0)
+                    credit_amts.append(amount)
+                else:
+                    debit_amts.append(-amount)
+                    credit_amts.append(0)
+                dates.append(date)
+                descriptions.append(description)
+                balances.append(balance)
 
-        # Extract description
-        desc_match = re.search(desc_pattern, line)
-        if desc_match:
-            descriptions.append(desc_match.group())
-
-        # Extract debit/credit amount
-        amt_match = re.search(amt_pattern, line)
-        if amt_match:
-            amt = float(amt_match.group())
-            if 'Dr' in line:
-                debit_amts.append(amt)
-                credit_amts.append(0.0)
-            elif 'Cr' in line:
-                debit_amts.append(0.0)
-                credit_amts.append(amt)
-
-        # Extract balance
-        balance_match = re.search(r'Balance\s+(\d+(\.\d{2})?)', line)
-        if balance_match:
-            balances.append(float(balance_match.group(1)))
-
-    # Trim lists to same minimum length
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]
     descriptions = descriptions[:min_len]
@@ -56,7 +39,6 @@ def parse_icici_bank_statement(pdf_file_path):
     credit_amts = credit_amts[:min_len]
     balances = balances[:min_len]
 
-    # Create DataFrame
     df = pd.DataFrame({
         'Date': dates,
         'Description': descriptions,
@@ -64,13 +46,10 @@ def parse_icici_bank_statement(pdf_file_path):
         'Credit Amt': credit_amts,
         'Balance': balances
     })
-
     return df
 ```
-Here's how you can use this function:
-```python
-pdf_file_path = 'path/to/icici_bank_statement.pdf'
-df = parse_icici_bank_statement(pdf_file_path)
-print(df)
-```
-Note that this parser assumes that the PDF file has a specific structure, with dates, descriptions, debit/credit amounts, and balances in a specific format. You may need to adjust the regular expressions or the parsing logic if your PDF files have a different structure.
+This parser uses the `pdfplumber` library to extract text from the PDF file, and then processes the text to extract the relevant information. It assumes that the PDF file has a consistent format, with each transaction represented by a single line of text, with the date, description, amount, and balance separated by spaces.
+
+The parser creates five lists to store the extracted information: `dates`, `descriptions`, `debit_amts`, `credit_amts`, and `balances`. It then trims these lists to the same minimum length using the `min_len` variable, to ensure that the resulting DataFrame has the correct shape.
+
+Finally, the parser creates a Pandas DataFrame from the extracted information, with the specified column names.

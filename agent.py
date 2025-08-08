@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Smart Bank Parser Agent that understands NaN patterns in CSV
-"""
-
 import os
 import sys
 import json
@@ -155,7 +151,6 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 print("Empty code generated. Skipping.")
                 continue
 
-            # Ensure no unterminated multiline comments
             if code.count('"""') % 2 != 0:
                 code = code.replace('"""', '')
 
