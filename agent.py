@@ -206,7 +206,10 @@ Always split on whitespace. Skip lines with less than 6 tokens.
 
                 with pdfplumber.open(pdf_path) as pdf:
                     for page in pdf.pages:
-                        lines = page.extract_text().splitlines()
+                        text = page.extract_text()
+                        if text:
+                            print("\n📄 Page Text Start\n", text, "\n📄 Page Text End\n")
+                        lines = text.splitlines()
                         for line in lines:
                             tokens = line.strip().split()
                             if len(tokens) < 6:
