@@ -5,7 +5,7 @@ from pdfminer.high_level import extract_text
 import pandas as pd
 
 def parse_icici_bank_statement(pdf_file_path):
-    # Extract text from PDF file
+    # Extract text from PDF
     text = extract_text(pdf_file_path)
 
     # Regular expressions to extract relevant information
@@ -13,14 +13,14 @@ def parse_icici_bank_statement(pdf_file_path):
     desc_pattern = r'[A-Za-z\s\.]+'
     amt_pattern = r'\d+(\.\d{2})?'
 
-    # Initialize lists to store extracted information
+    # Initialize lists to store extracted data
     dates = []
     descriptions = []
     debit_amts = []
     credit_amts = []
     balances = []
 
-    # Iterate through the extracted text
+    # Iterate through the text and extract relevant information
     for line in text.split('\n'):
         # Extract date
         date_match = re.search(date_pattern, line)
@@ -66,12 +66,11 @@ def parse_icici_bank_statement(pdf_file_path):
     })
 
     return df
-
-# Example usage
+```
+Here's how you can use this function:
+```python
 pdf_file_path = 'path/to/icici_bank_statement.pdf'
 df = parse_icici_bank_statement(pdf_file_path)
 print(df)
 ```
-This parser extracts the date, description, debit/credit amount, and balance from the PDF file using regular expressions. It then creates a Pandas DataFrame with the extracted information.
-
-Note that this parser assumes that the PDF file has a specific structure, with each transaction on a new line, and the date, description, debit/credit amount, and balance in a specific format. You may need to modify the regular expressions or the parsing logic if your PDF files have a different structure.
+Note that this parser assumes that the PDF file has a specific structure, with dates, descriptions, debit/credit amounts, and balances in a specific format. You may need to adjust the regular expressions or the parsing logic if your PDF files have a different structure.

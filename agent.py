@@ -80,7 +80,8 @@ class BankParserAgent:
         trim_instructions = """
 IMPORTANT IMPLEMENTATION RULES:
 
-1. Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
+1. Do NOT include any docstrings or comment blocks.
+2. Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
 
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
 dates = dates[:min_len]
@@ -89,7 +90,7 @@ debit_amts = debit_amts[:min_len]
 credit_amts = credit_amts[:min_len]
 balances = balances[:min_len]
 
-2. Then create the DataFrame with:
+3. Then create the DataFrame with:
 df = pd.DataFrame({
     'Date': dates,
     'Description': descriptions,
@@ -154,9 +155,9 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 print("Empty code generated. Skipping.")
                 continue
 
-            # Ensure code has no unterminated comment blocks
-            if code.count("""""") % 2 != 0:
-                code += '"""'
+            # Ensure no unterminated multiline comments
+            if code.count('"""') % 2 != 0:
+                code = code.replace('"""', '')
 
             temp_path = parser_path.with_name(f"{bank_name}_parser_attempt{attempt}.py")
             try:
