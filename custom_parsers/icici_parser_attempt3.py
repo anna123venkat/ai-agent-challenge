@@ -19,18 +19,18 @@ def parse_icici_bank_statement(pdf_file):
                 if len(parts) < 5:
                     continue
                 date = ' '.join(parts[:3])
-                description = ' '.join(parts[3:-3])
-                amount = float(parts[-2].replace(',', ''))
-                balance = float(parts[-1].replace(',', ''))
-                if amount > 0:
-                    debit_amts.append(0)
-                    credit_amts.append(amount)
-                else:
-                    debit_amts.append(-amount)
+                desc = ' '.join(parts[3:-3])
+                amt = float(parts[-2].replace(',', ''))
+                bal = float(parts[-1].replace(',', ''))
+                if 'Dr' in parts[-3]:
+                    debit_amts.append(amt)
                     credit_amts.append(0)
+                else:
+                    debit_amts.append(0)
+                    credit_amts.append(amt)
                 dates.append(date)
-                descriptions.append(description)
-                balances.append(balance)
+                descriptions.append(desc)
+                balances.append(bal)
 
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]
@@ -50,8 +50,8 @@ def parse_icici_bank_statement(pdf_file):
 ```
 This parser uses the `pdfplumber` library to extract text from the PDF file, and then processes the text to extract the relevant information. It assumes that the PDF file has a specific format, where each transaction is represented by a line with the following format:
 ```
-Date Description ... Amount Balance
+Date Description ... Dr/Cr Amount Balance
 ```
-The parser extracts the date, description, amount, and balance from each line, and then determines whether the transaction is a debit or credit based on the sign of the amount. Finally, it creates a Pandas DataFrame from the extracted data and returns it.
+The parser extracts the date, description, debit/credit amount, and balance from each line, and stores them in separate lists. It then trims the lists to the same minimum length, and creates a Pandas DataFrame from the lists.
 
-Note that this parser may not work correctly if the PDF file has a different format or if the transactions have multiple lines. You may need to modify the parser to handle these cases.
+Note that this parser assumes that the PDF file has a specific format, and may not work if the format is different. You may need to modify the parser to handle different formats.

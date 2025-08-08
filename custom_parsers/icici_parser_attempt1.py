@@ -54,4 +54,4 @@ Date Description ... Amount Balance
 ```
 The parser extracts the date, description, amount, and balance from each line, and then determines whether the transaction is a debit or credit based on the sign of the amount. Finally, it creates a Pandas DataFrame from the extracted data and returns it.
 
-Note that this parser may need to be modified to handle variations in the PDF file format or content.
+Note that this parser may not work correctly if the PDF file has a different format or if the transactions have multiple lines. You may need to modify the parser to handle these cases.

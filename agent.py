@@ -74,10 +74,8 @@ class BankParserAgent:
         csv_pattern = self.analyze_csv_pattern(state.csv_path)
 
         trim_instructions = """
-IMPORTANT IMPLEMENTATION RULES:
-
-1. Do NOT include any docstrings or comment blocks.
-2. Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
+IMPORTANT: Do NOT include any docstrings or comment blocks in the generated code.
+Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
 
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
 dates = dates[:min_len]
@@ -86,7 +84,6 @@ debit_amts = debit_amts[:min_len]
 credit_amts = credit_amts[:min_len]
 balances = balances[:min_len]
 
-3. Then create the DataFrame with:
 df = pd.DataFrame({
     'Date': dates,
     'Description': descriptions,
@@ -98,14 +95,10 @@ return df
 """
 
         return f"""
-Generate a Python parser for ICICI bank statement PDF.
+Generate a minimal Python function named `parse` that parses an ICICI bank statement PDF using `pdfplumber`, as follows:
 
 CRITICAL DISCOVERY from CSV analysis:
 {csv_pattern}
-
-KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit, not both.
-- You cannot determine debit/credit from description alone.
-- You must replicate the exact pattern from result.csv.
 
 {trim_instructions.strip()}
 """
@@ -151,8 +144,7 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 print("Empty code generated. Skipping.")
                 continue
 
-            if code.count('"""') % 2 != 0:
-                code = code.replace('"""', '')
+            code = code.replace('"""', '').replace("'''", '')
 
             temp_path = parser_path.with_name(f"{bank_name}_parser_attempt{attempt}.py")
             try:

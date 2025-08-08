@@ -48,8 +48,10 @@ def parse_icici_bank_statement(pdf_file):
     })
     return df
 ```
-This parser uses the `pdfplumber` library to extract text from the PDF file, and then processes the text to extract the relevant information. It assumes that the PDF file has a consistent format, with each transaction represented by a single line of text, with the date, description, amount, and balance separated by spaces.
+This parser uses the `pdfplumber` library to extract text from the PDF file, and then processes the text to extract the relevant information. It assumes that the PDF file has a specific format, where each transaction is represented by a line with the following format:
+```
+Date Description ... Amount Balance
+```
+The parser extracts the date, description, amount, and balance from each line, and then determines whether the transaction is a debit or credit based on the sign of the amount. Finally, it creates a Pandas DataFrame from the extracted data and returns it.
 
-The parser creates five lists to store the extracted information: `dates`, `descriptions`, `debit_amts`, `credit_amts`, and `balances`. It then trims these lists to the same minimum length using the `min_len` variable, to ensure that the resulting DataFrame has the correct shape.
-
-Finally, the parser creates a Pandas DataFrame from the extracted information, with the specified column names.
+Note that this parser may not work correctly if the PDF file has a different format or if the transactions have a different structure. You may need to modify the parser to handle these cases.
