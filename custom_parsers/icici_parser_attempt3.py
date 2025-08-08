@@ -2,14 +2,14 @@ import pdfplumber
 import pandas as pd
 import re
 
-def parse(pdf_file):
+def parse(pdf_path):
     dates = []
     descriptions = []
     debit_amts = []
     credit_amts = []
     balances = []
-
-    with pdfplumber.open(pdf_file) as pdf:
+    
+    with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             lines = text.split('\n')
@@ -22,20 +22,24 @@ def parse(pdf_file):
                     continue
                 date = parts[0]
                 desc = ' '.join(parts[1:-3])
-                nums = [float(x) for x in parts[-3:]]
+                amounts = list(map(float, parts[-3:]))
+                if amounts[0] > 0:
+                    debit_amts.append(amounts[0])
+                    credit_amts.append(0)
+                else:
+                    debit_amts.append(0)
+                    credit_amts.append(-amounts[0])
+                balances.append(amounts[1])
                 dates.append(date)
                 descriptions.append(desc)
-                debit_amts.append(nums[0] if nums[0] < 0 else 0)
-                credit_amts.append(nums[0] if nums[0] > 0 else 0)
-                balances.append(nums[2])
-
+    
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]
     descriptions = descriptions[:min_len]
     debit_amts = debit_amts[:min_len]
     credit_amts = credit_amts[:min_len]
     balances = balances[:min_len]
-
+    
     df = pd.DataFrame({
         'Date': dates,
         'Description': descriptions,

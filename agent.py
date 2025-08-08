@@ -195,6 +195,20 @@ CRITICAL DISCOVERY from CSV analysis:
                 df = df[common_cols].reset_index(drop=True)
                 expected_df = expected_df[common_cols].reset_index(drop=True)
 
+                
+                # Reset index
+                df = df.reset_index(drop=True)
+                expected_df = expected_df.reset_index(drop=True)
+
+                # Coerce numeric types
+                for col in ['Debit Amt', 'Credit Amt', 'Balance']:
+                    if col in df.columns and col in expected_df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                        expected_df[col] = pd.to_numeric(expected_df[col], errors='coerce')
+
+                # Reorder columns to match
+                df = df[expected_df.columns]
+
                 if df.equals(expected_df):
                     print("✅ Parser output matches expected CSV")
                     return
@@ -207,6 +221,7 @@ CRITICAL DISCOVERY from CSV analysis:
                         print(f"⚠️ Unable to compare: {e}")
                         print("Agent output columns:", df.columns.tolist())
                         print("Expected columns:", expected_df.columns.tolist())
+)
             except Exception as e:
                 print(f"Agent error: {e}")
 
