@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
-import ast
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -75,7 +74,14 @@ class BankParserAgent:
 
         trim_instructions = """
 IMPORTANT: Do NOT include any docstrings or comment blocks in the generated code.
-Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
+
+Ensure the function:
+1. Uses `pdfplumber` to read each page.
+2. Splits text into lines and skips headers or malformed lines.
+3. Parses only lines where numeric values are detected in the expected positions.
+4. Wraps float conversion in try-except blocks and skips lines if casting fails.
+5. Builds lists: dates, descriptions, debit_amts, credit_amts, balances.
+6. Before creating the DataFrame, ensure all lists are trimmed to the same min length:
 
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
 dates = dates[:min_len]
@@ -104,8 +110,14 @@ CRITICAL DISCOVERY from CSV analysis:
 """
 
     def run(self, bank_name: str):
-        pdf_path = Path(f"data/{bank_name}/{bank_name}_sample.pdf")
-        csv_path = Path(f"data/{bank_name}/result.csv")
+        base_path = Path(f"data/{bank_name}")
+        pdf_path = base_path / f"{bank_name}_sample.pdf"
+        if not pdf_path.exists():
+            alt_path = base_path / f"{bank_name} sample.pdf"
+            if alt_path.exists():
+                pdf_path = alt_path
+
+        csv_path = base_path / "result.csv"
         parser_path = Path(f"custom_parsers/{bank_name}_parser.py")
 
         state = AgentState(
@@ -144,7 +156,7 @@ CRITICAL DISCOVERY from CSV analysis:
                 print("Empty code generated. Skipping.")
                 continue
 
-            code = code.replace('"""', '').replace("'''", '')
+            code = code.strip().replace('"""', '').replace("'''", '').replace('`', '')
 
             temp_path = parser_path.with_name(f"{bank_name}_parser_attempt{attempt}.py")
             try:
@@ -153,10 +165,15 @@ CRITICAL DISCOVERY from CSV analysis:
                     f.write(code)
                 print(f"💾 Saved parser to {temp_path}")
 
-                ast.parse(code)
-            except SyntaxError as syn_err:
-                print(f"❌ Syntax error in generated code: {syn_err}")
-                continue
+                try:
+                    compile(code, filename="<parser>", mode="exec")
+                except SyntaxError as syn_err:
+                    print("🔍 Generated Code with Syntax Error:")
+                    print("="*60)
+                    print(code)
+                    print("="*60)
+                    print(f"❌ Syntax error in generated code: {syn_err}")
+                    continue
             except Exception as e:
                 print(f"❌ Error saving or validating parser: {e}")
                 continue
