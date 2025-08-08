@@ -74,6 +74,10 @@ class BankParserAgent:
 
         trim_instructions = """
 IMPORTANT: Do NOT include any docstrings or comment blocks in the generated code.
+Only extract lines that appear to represent valid transactions.
+A valid transaction line MUST contain a date followed by text and at least 3 numeric values (amounts/balance).
+Skip lines like 'Powered by', headers, footers, page numbers, or empty lines.
+
 Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
 
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
