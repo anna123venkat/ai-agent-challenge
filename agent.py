@@ -74,14 +74,7 @@ class BankParserAgent:
 
         trim_instructions = """
 IMPORTANT: Do NOT include any docstrings or comment blocks in the generated code.
-
-Ensure the function:
-1. Uses `pdfplumber` to read each page.
-2. Splits text into lines and skips headers or malformed lines.
-3. Parses only lines where numeric values are detected in the expected positions.
-4. Wraps float conversion in try-except blocks and skips lines if casting fails.
-5. Builds lists: dates, descriptions, debit_amts, credit_amts, balances.
-6. Before creating the DataFrame, ensure all lists are trimmed to the same min length:
+Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
 
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
 dates = dates[:min_len]
@@ -186,13 +179,22 @@ CRITICAL DISCOVERY from CSV analysis:
                 parse_fn = module.parse
                 df = parse_fn(str(pdf_path))
                 expected_df = pd.read_csv(csv_path)
+
+                df = df.sort_index(axis=1).reset_index(drop=True)
+                expected_df = expected_df.sort_index(axis=1).reset_index(drop=True)
+
                 if df.equals(expected_df):
                     print("✅ Parser output matches expected CSV")
                     return
                 else:
-                    mismatched = df.compare(expected_df)
-                    print("❌ Test failed\nColumn Balance values don't match")
-                    print(mismatched)
+                    print("❌ Test failed: Output mismatch")
+                    try:
+                        mismatched = df.compare(expected_df)
+                        print(mismatched)
+                    except Exception as e:
+                        print(f"⚠️ Unable to compare: {e}")
+                        print("Agent output columns:", df.columns.tolist())
+                        print("Expected columns:", expected_df.columns.tolist())
             except Exception as e:
                 print(f"Agent error: {e}")
 

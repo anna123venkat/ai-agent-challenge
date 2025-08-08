@@ -12,21 +12,23 @@ def parse(pdf_path):
         for page in pdf.pages:
             text = page.extract_text()
             lines = text.split('\n')
-            for line in lines:
-                if 'Date' in line:
-                    continue
+            for line in lines[2:]:  # skip headers
                 parts = line.split()
-                if len(parts) > 5:
-                    date = ' '.join(parts[:2])
-                    desc = ' '.join(parts[2:-3])
+                if len(parts) < 5:
+                    continue
+                try:
+                    date = parts[0]
+                    description = ' '.join(parts[1:-3])
                     debit_amt = float(parts[-3].replace(',', ''))
                     credit_amt = float(parts[-2].replace(',', ''))
                     balance = float(parts[-1].replace(',', ''))
                     dates.append(date)
-                    descriptions.append(desc)
-                    debit_amts.append(debit_amt if debit_amt > 0 else 0)
-                    credit_amts.append(credit_amt if credit_amt > 0 else 0)
+                    descriptions.append(description)
+                    debit_amts.append(debit_amt)
+                    credit_amts.append(credit_amt)
                     balances.append(balance)
+                except ValueError:
+                    continue
 
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]
