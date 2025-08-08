@@ -77,7 +77,7 @@ class BankParserAgent:
     def generate_code_prompt(self, state: AgentState, analysis: Dict) -> str:
         csv_pattern = self.analyze_csv_pattern(state.csv_path)
 
-        trim_instructions = '''
+        trim_instructions = """
 IMPORTANT IMPLEMENTATION RULES:
 
 1. Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
@@ -98,7 +98,7 @@ df = pd.DataFrame({
     'Balance': balances
 })
 return df
-'''
+"""
 
         return f"""
 Generate a Python parser for ICICI bank statement PDF.
@@ -110,7 +110,7 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
 - You cannot determine debit/credit from description alone.
 - You must replicate the exact pattern from result.csv.
 
-{trim_instructions}
+{trim_instructions.strip()}
 """
 
     def run(self, bank_name: str):
@@ -153,6 +153,10 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
             if not code.strip():
                 print("Empty code generated. Skipping.")
                 continue
+
+            # Ensure code has no unterminated comment blocks
+            if code.count("""""") % 2 != 0:
+                code += '"""'
 
             temp_path = parser_path.with_name(f"{bank_name}_parser_attempt{attempt}.py")
             try:
