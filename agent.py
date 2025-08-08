@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+import ast
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -132,7 +133,6 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
             prompt = self.generate_code_prompt(state, analysis={})
             code = self._call_llm(prompt)
 
-            # 🧼 Sanitize: Remove ```python ... ``` if present
             if code.startswith("```"):
                 code = code.strip()
                 if code.startswith("```python"):
@@ -140,7 +140,6 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 if code.endswith("```"):
                     code = code[:-3].strip()
 
-            # ✂️ Further sanitize: extract only lines between first valid code and last line
             lines = code.splitlines()
             start, end = None, None
             for i, line in enumerate(lines):
@@ -155,19 +154,24 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 print("Empty code generated. Skipping.")
                 continue
 
+            temp_path = parser_path.with_name(f"{bank_name}_parser_attempt{attempt}.py")
             try:
                 parser_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(parser_path, 'w', encoding='utf-8') as f:
+                with open(temp_path, 'w', encoding='utf-8') as f:
                     f.write(code)
-                print(f"💾 Saved parser to {parser_path}")
+                print(f"💾 Saved parser to {temp_path}")
 
+                ast.parse(code)
+            except SyntaxError as syn_err:
+                print(f"❌ Syntax error in generated code: {syn_err}")
+                continue
             except Exception as e:
-                print(f"❌ Error saving parser: {e}")
+                print(f"❌ Error saving or validating parser: {e}")
                 continue
 
             try:
                 import importlib.util
-                spec = importlib.util.spec_from_file_location("icici_parser", str(parser_path))
+                spec = importlib.util.spec_from_file_location("icici_parser", str(temp_path))
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 parse_fn = module.parse
