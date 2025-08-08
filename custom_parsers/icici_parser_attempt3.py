@@ -14,12 +14,12 @@ def parse(pdf_path):
             lines = text.split('\n')
             for line in lines:
                 parts = line.split()
-                if len(parts) >= 5 and parts[0].count('-') == 2:
+                if len(parts) >= 6:
                     date = parts[0]
-                    description = ' '.join(parts[1:-3])
                     debit_amt = float(parts[-3])
                     credit_amt = float(parts[-2])
                     balance = float(parts[-1])
+                    description = ' '.join(parts[1:-3])
                     dates.append(date)
                     descriptions.append(description)
                     debit_amts.append(debit_amt)

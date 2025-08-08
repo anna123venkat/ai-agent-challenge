@@ -7,32 +7,27 @@ def parse(pdf_path):
     debit_amts = []
     credit_amts = []
     balances = []
-    
+
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             lines = text.split('\n')
             for line in lines:
                 parts = line.split()
-                if len(parts) >= 5 and parts[0].count('-') == 2:  # date format check
-                    date = parts[0]
-                    description = ' '.join(parts[1:-3])
-                    debit_amt = float(parts[-3])
-                    credit_amt = float(parts[-2])
-                    balance = float(parts[-1])
-                    dates.append(date)
-                    descriptions.append(description)
-                    debit_amts.append(debit_amt)
-                    credit_amts.append(credit_amt)
-                    balances.append(balance)
-    
+                if len(parts) >= 6:
+                    dates.append(parts[0])
+                    descriptions.append(' '.join(parts[1:-3]))
+                    debit_amts.append(float(parts[-3]))
+                    credit_amts.append(float(parts[-2]))
+                    balances.append(float(parts[-1]))
+
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]
     descriptions = descriptions[:min_len]
     debit_amts = debit_amts[:min_len]
     credit_amts = credit_amts[:min_len]
     balances = balances[:min_len]
-    
+
     df = pd.DataFrame({
         'Date': dates,
         'Description': descriptions,

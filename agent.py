@@ -74,25 +74,36 @@ class BankParserAgent:
 
         trim_instructions = """
 IMPORTANT: Do NOT include any docstrings or comment blocks in the generated code.
-Only extract lines that appear to represent valid transactions.
-A valid transaction line MUST contain a date followed by text and at least 3 numeric values (amounts/balance).
-Skip lines like 'Powered by', headers, footers, page numbers, or empty lines.
+
+Parsing and Filtering Rules:
+- Only extract lines that represent **valid transactions**
+- A valid transaction line MUST:
+  - Start with a valid date in `DD-MM-YYYY` format
+  - Contain at least **6 whitespace-separated tokens**
+  - NOT contain headers like: 'Date', 'Description', 'Credit', 'Balance', etc.
+
+Use this regex to validate the date: ^\\d{2}-\\d{2}-\\d{4}
+
+Example transaction line:
+"01-08-2024 Salary Credit XYZ Pvt Ltd 1935.30 0.00 6864.58"
+
+Parsing logic:
+- Date = first element (parts[0])
+- Debit Amt = third-last (float(parts[-3]))
+- Credit Amt = second-last (float(parts[-2]))
+- Balance = last (float(parts[-1]))
+- Description = parts[1:-3], joined with space
 
 Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
-
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
-dates = dates[:min_len]
-descriptions = descriptions[:min_len]
-debit_amts = debit_amts[:min_len]
-credit_amts = credit_amts[:min_len]
-balances = balances[:min_len]
+Then construct:
 
 df = pd.DataFrame({
-    'Date': dates,
-    'Description': descriptions,
-    'Debit Amt': debit_amts,
-    'Credit Amt': credit_amts,
-    'Balance': balances
+    'Date': dates[:min_len],
+    'Description': descriptions[:min_len],
+    'Debit Amt': debit_amts[:min_len],
+    'Credit Amt': credit_amts[:min_len],
+    'Balance': balances[:min_len]
 })
 return df
 """
