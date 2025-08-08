@@ -17,17 +17,15 @@ def parse(pdf_path):
                     continue
                 parts = line.split()
                 if len(parts) > 5:
-                    dates.append(' '.join(parts[:3]))
-                    descriptions.append(' '.join(parts[3:-3]))
+                    date = ' '.join(parts[:2])
+                    desc = ' '.join(parts[2:-3])
                     debit_amt = float(parts[-3].replace(',', ''))
                     credit_amt = float(parts[-2].replace(',', ''))
                     balance = float(parts[-1].replace(',', ''))
-                    if debit_amt > 0:
-                        debit_amts.append(debit_amt)
-                        credit_amts.append(0)
-                    else:
-                        debit_amts.append(0)
-                        credit_amts.append(credit_amt)
+                    dates.append(date)
+                    descriptions.append(desc)
+                    debit_amts.append(debit_amt if debit_amt > 0 else 0)
+                    credit_amts.append(credit_amt if credit_amt > 0 else 0)
                     balances.append(balance)
 
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))

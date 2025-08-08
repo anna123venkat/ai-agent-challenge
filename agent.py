@@ -177,9 +177,16 @@ CRITICAL DISCOVERY from CSV analysis:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 parse_fn = module.parse
-                df = parse_fn(str(pdf_path))
-                expected_df = pd.read_csv(csv_path)
+                try:
+                    df = parse_fn(str(pdf_path))
+                except ValueError as ve:
+                    print(f"Agent error (ValueError): {ve}")
+                    continue
+                except Exception as ex:
+                    print(f"Agent error (Exception): {ex}")
+                    continue
 
+                expected_df = pd.read_csv(csv_path)
                 df = df.sort_index(axis=1).reset_index(drop=True)
                 expected_df = expected_df.sort_index(axis=1).reset_index(drop=True)
 
@@ -195,8 +202,6 @@ CRITICAL DISCOVERY from CSV analysis:
                         print(f"⚠️ Unable to compare: {e}")
                         print("Agent output columns:", df.columns.tolist())
                         print("Expected columns:", expected_df.columns.tolist())
-            except ValueError as ve:
-                print(f"Agent error (ValueError): {ve}")
             except Exception as e:
                 print(f"Agent error: {e}")
 
