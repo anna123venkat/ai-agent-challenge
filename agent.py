@@ -140,12 +140,16 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 if code.endswith("```"):
                     code = code[:-3].strip()
 
-            # Further sanitize: discard everything before first valid Python line
+            # ✂️ Further sanitize: extract only lines between first valid code and last line
             lines = code.splitlines()
+            start, end = None, None
             for i, line in enumerate(lines):
-                if line.strip().startswith(("import", "def")):
-                    code = "\n".join(lines[i:])
-                    break
+                if start is None and line.strip().startswith(("import", "def")):
+                    start = i
+                if line.strip() != "":
+                    end = i
+            if start is not None and end is not None:
+                code = "\n".join(lines[start:end+1])
 
             if not code.strip():
                 print("Empty code generated. Skipping.")
