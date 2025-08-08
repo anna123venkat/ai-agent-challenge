@@ -15,21 +15,19 @@ def parse(pdf_path):
             lines = text.split('\n')
             for line in lines:
                 line = line.strip()
-                if not line or len(line) < 10:
+                if not line or 'Powered by' in line:
                     continue
                 parts = re.split(r'\s{2,}', line)
-                if len(parts) < 4:
+                if len(parts) < 5:
                     continue
                 date = parts[0]
-                desc = ' '.join(parts[1:-3])
-                amounts = [float(x) for x in parts[-3:]]
-                if len(amounts) != 3:
-                    continue
-                debit, credit, balance = amounts
+                description = ' '.join(parts[1:-3])
+                amounts = [float(x.replace(',', '')) for x in parts[-3:]]
+                debit_amt, credit_amt, balance = amounts
                 dates.append(date)
-                descriptions.append(desc)
-                debit_amts.append(debit)
-                credit_amts.append(credit)
+                descriptions.append(description)
+                debit_amts.append(debit_amt if debit_amt > 0 else 0)
+                credit_amts.append(credit_amt if credit_amt > 0 else 0)
                 balances.append(balance)
     
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
