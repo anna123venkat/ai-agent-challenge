@@ -75,29 +75,33 @@ class BankParserAgent:
         trim_instructions = """
 IMPORTANT: Do NOT include any docstrings or comment blocks in the generated code.
 
-Parsing and Filtering Rules:
-- Only extract lines that represent **valid transactions**
-- A valid transaction line MUST:
-  - Start with a valid date in `DD-MM-YYYY` format
-  - Contain at least **6 whitespace-separated tokens**
-  - NOT contain headers like: 'Date', 'Description', 'Credit', 'Balance', etc.
-
-Use this regex to validate the date: ^\\d{2}-\\d{2}-\\d{4}
-
-Example transaction line:
-"01-08-2024 Salary Credit XYZ Pvt Ltd 1935.30 0.00 6864.58"
+Parsing Instructions:
+- Use `pdfplumber` to extract lines.
+- Each transaction line should:
+  - Start with a valid date in format DD-MM-YYYY (use regex)
+  - Have at least 6 tokens
+  - Skip if it contains headers like 'Date', 'Description', 'Credit', etc.
 
 Parsing logic:
-- Date = first element (parts[0])
-- Debit Amt = third-last (float(parts[-3]))
-- Credit Amt = second-last (float(parts[-2]))
-- Balance = last (float(parts[-1]))
-- Description = parts[1:-3], joined with space
+- Date = first token
+- From the end of the line, iterate backward to find 3 float-convertible tokens:
+    - Balance = last float
+    - Credit = second last float
+    - Debit = third last float
+- Description = join all tokens between index 1 and the start of Debit
 
-Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
+Use this helper before float conversion:
+
+def is_float(s):
+    try:
+        float(s)
+        return True
+    except:
+        return False
+
+Before creating the DataFrame, trim all extracted lists to the same length:
+
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
-Then construct:
-
 df = pd.DataFrame({
     'Date': dates[:min_len],
     'Description': descriptions[:min_len],
@@ -118,11 +122,16 @@ Example transaction line:
 "01-08-2024 Salary Credit XYZ Pvt Ltd 1935.30 0.00 6864.58"
 
 Parsing logic:
-- Date = first element (parts[0])
-- Debit Amt = third-last (float(parts[-3]))
-- Credit Amt = second-last (float(parts[-2]))
-- Balance = last (float(parts[-1]))
-- Description = all tokens from parts[1] to parts[-4] joined with spaces
+- Split the line on whitespace.
+- Skip the line if it has fewer than 6 tokens.
+- Skip the line if it contains header-like words such as 'Date', 'Description', 'Credit', etc.
+- Date = first token (tokens[0])
+- From the end of the list, **find the last three float-compatible tokens**:
+    - Balance = last float
+    - Credit Amt = second-last float
+    - Debit Amt = third-last float
+- Description = tokens between index 1 and the token before the Debit Amt, joined with spaces
+- Use try/except to skip any lines that cause errors during float conversion.
 
 Always split on whitespace. Skip lines with less than 6 tokens.
 
