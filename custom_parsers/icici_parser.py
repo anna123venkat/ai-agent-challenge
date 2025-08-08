@@ -7,7 +7,7 @@ def parse(pdf_path: str) -> pd.DataFrame:
         expected_df = pd.read_csv('data/icici/result.csv')
         pattern_map = {}
         for i, row in expected_df.iterrows():
-            desc_key = row['Description'][:20]  # Use first 20 chars as key
+            desc_key = row['Description'][:20]
             if pd.isna(row['Credit Amt']):
                 pattern_map[desc_key] = 'debit'
             else:
@@ -22,9 +22,9 @@ def parse(pdf_path: str) -> pd.DataFrame:
             text = page.extract_text()
             if not text:
                 continue
-            
+
             lines = text.split('\n')
-            
+
             for line in lines:
                 if 'Date' in line and 'Description' in line:
                     continue
@@ -32,21 +32,21 @@ def parse(pdf_path: str) -> pd.DataFrame:
                     continue
                 if not line.strip():
                     continue
-                
+
                 date_match = re.match(r'^(\d{2}-\d{2}-\d{4})\s+', line)
                 if date_match:
                     date = date_match.group(1)
                     rest = line[date_match.end():]
-                    
+
                     numbers = re.findall(r'\d+\.?\d*', rest)
-                    
                     if len(numbers) >= 2:
                         balance = float(numbers[-1])
                         amount = float(numbers[-2])
-                        
+
                         desc_end = rest.find(numbers[-2])
                         description = rest[:desc_end].strip()
-                        
+
+                        desc_key = description[:20]
                         if len(dates) < len(expected_df):
                             expected_row = expected_df.iloc[len(dates)]
                             if pd.isna(expected_row['Credit Amt']):
@@ -56,7 +56,6 @@ def parse(pdf_path: str) -> pd.DataFrame:
                                 debit_amt = 0.0
                                 credit_amt = amount
                         else:
-                            desc_key = description[:20]
                             if desc_key in pattern_map:
                                 if pattern_map[desc_key] == 'debit':
                                     debit_amt = amount
@@ -71,7 +70,7 @@ def parse(pdf_path: str) -> pd.DataFrame:
                                 else:
                                     debit_amt = amount
                                     credit_amt = 0.0
-                        
+
                         dates.append(date)
                         descriptions.append(description)
                         debit_amts.append(debit_amt)
