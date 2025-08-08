@@ -99,6 +99,11 @@ def is_float(s):
     except:
         return False
 
+For each line processed, print debug info:
+- When skipping a line, print the reason.
+- When parsing is successful, print the parsed fields.
+- After all lines, print the number of parsed entries.
+
 Before creating the DataFrame, trim all extracted lists to the same length:
 
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
@@ -109,8 +114,10 @@ df = pd.DataFrame({
     'Credit Amt': credit_amts[:min_len],
     'Balance': balances[:min_len]
 })
+print(f"✅ Parsed {len(df)} transactions")
 return df
 """
+
 
         return f"""
 Generate a minimal Python function named `parse` that parses an ICICI bank statement PDF using `pdfplumber`, as follows:
