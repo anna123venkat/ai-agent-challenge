@@ -140,6 +140,13 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 if code.endswith("```"):
                     code = code[:-3].strip()
 
+            # Further sanitize: discard everything before first valid Python line
+            lines = code.splitlines()
+            for i, line in enumerate(lines):
+                if line.strip().startswith(("import", "def")):
+                    code = "\n".join(lines[i:])
+                    break
+
             if not code.strip():
                 print("Empty code generated. Skipping.")
                 continue
