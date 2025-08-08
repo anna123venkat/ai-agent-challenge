@@ -195,6 +195,8 @@ CRITICAL DISCOVERY from CSV analysis:
                         print(f"⚠️ Unable to compare: {e}")
                         print("Agent output columns:", df.columns.tolist())
                         print("Expected columns:", expected_df.columns.tolist())
+            except ValueError as ve:
+                print(f"Agent error (ValueError): {ve}")
             except Exception as e:
                 print(f"Agent error: {e}")
 
