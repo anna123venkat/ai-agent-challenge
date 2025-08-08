@@ -46,35 +46,68 @@ class BankParserAgent:
             print(f"LLM call failed: {e}")
             return ""
 
-    def generate_code_prompt(self, state: AgentState) -> str:
-        """Generate prompt that understands the 2-number format"""
+    def analyze_discrepancies(self, result_df: pd.DataFrame, expected_df: pd.DataFrame) -> str:
+        """Analyze differences between result and expected DataFrames"""
+        discrepancies = []
         
-        return """
+        # Compare first few rows in detail
+        for i in range(min(10, len(result_df), len(expected_df))):
+            result_row = result_df.iloc[i]
+            expected_row = expected_df.iloc[i]
+            
+            if not result_row.equals(expected_row):
+                discrepancies.append(f"Row {i}:")
+                discrepancies.append(f"  Date: {result_row['Date']} vs {expected_row['Date']}")
+                discrepancies.append(f"  Description: '{result_row['Description']}' vs '{expected_row['Description']}'")
+                discrepancies.append(f"  Debit: {result_row['Debit Amt']} vs {expected_row['Debit Amt']}")
+                discrepancies.append(f"  Credit: {result_row['Credit Amt']} vs {expected_row['Credit Amt']}")
+                discrepancies.append(f"  Balance: {result_row['Balance']} vs {expected_row['Balance']}")
+                discrepancies.append("")
+        
+        return "\n".join(discrepancies[:50])  # Limit output
+
+    def generate_code_prompt(self, state: AgentState, previous_errors: str = "") -> str:
+        """Generate improved prompt based on previous attempts"""
+        
+        error_context = ""
+        if previous_errors:
+            error_context = f"\n\nPREVIOUS ERRORS TO FIX:\n{previous_errors}\n"
+        
+        return f"""
 Generate a Python function to parse ICICI bank statement PDF.
 
-CRITICAL: The PDF has a specific format with only TWO numbers per line:
-- Format: "DD-MM-YYYY Description Amount Balance"
-- Example: "01-08-2024 Salary Credit XYZ Pvt Ltd 1935.3 6864.58"
-  - Date: 01-08-2024
-  - Description: Salary Credit XYZ Pvt Ltd
-  - Amount: 1935.3 (this goes to EITHER Debit OR Credit column)
-  - Balance: 6864.58
+CRITICAL FORMAT ANALYSIS:
+- PDF Format: "DD-MM-YYYY Description Amount Balance" (only 4 values per line)
+- CSV Output: Date, Description, Debit Amt, Credit Amt, Balance (5 columns)
+- The single "Amount" from PDF must go to EITHER "Debit Amt" OR "Credit Amt" in CSV
 
-The CSV output needs 5 columns but the PDF only has 4 values. Each transaction's amount goes to EITHER Debit Amt OR Credit Amt (not both).
+CRITICAL: The expected CSV has INVERTED debit/credit logic! Based on debug analysis:
+- "Salary Credit" (logically a credit/income) goes in DEBIT column
+- "Mobile Recharge" (logically a debit/expense) goes in CREDIT column  
+- "Fuel Purchase" (logically a debit/expense) goes in CREDIT column
 
-COMPLETE CODE:
+INVERTED LOGIC FOR CSV MATCHING:
+PUT IN DEBIT COLUMN (what should logically be credits):
+- "Salary Credit", "Interest Credit", "Cheque Deposit"
+- "Cash Deposit", "NEFT Transfer From", "Transfer From"
+
+PUT IN CREDIT COLUMN (what should logically be debits):
+- "UPI Payment", "IMPS UPI Payment", "UPI QR Payment"
+- "Card Swipe", "Debit Card", "Online Card Purchase"
+- "Credit Card Payment", "EMI Auto Debit", "Insurance Premium Auto Debit"
+- "Service Charge", "Bill Payment", "NEFT Online"
+- "ATM Cash Withdrawal", "Mobile Recharge", "UPI Transfer"
+- "NEFT Transfer To", "Fuel Purchase", "Electricity", "Utility"
+
+{error_context}
+
+COMPLETE WORKING CODE:
 ```python
 import pandas as pd
 import pdfplumber
 import re
 
 def parse(pdf_path: str) -> pd.DataFrame:
-    # Read expected CSV to understand debit/credit pattern
-    try:
-        expected_df = pd.read_csv('data/icici/result.csv')
-    except:
-        expected_df = None
-    
     all_transactions = []
     
     with pdfplumber.open(pdf_path) as pdf:
@@ -83,9 +116,7 @@ def parse(pdf_path: str) -> pd.DataFrame:
             if not text:
                 continue
             
-            lines = text.split('\\n')
-            
-            for line in lines:
+            for line in text.split('\\n'):
                 # Skip empty lines and footers
                 if not line.strip() or 'ChatGPT' in line or 'Bannk' in line:
                     continue
@@ -94,15 +125,15 @@ def parse(pdf_path: str) -> pd.DataFrame:
                 if line.startswith('Date Description'):
                     continue
                 
-                # Check for date at start
-                date_match = re.match(r'^(\\d{2}-\\d{2}-\\d{4})\\s+', line)
+                # Match date at start
+                date_match = re.match(r'^(\\d{{2}}-\\d{{2}}-\\d{{4}})\\s+', line)
                 if not date_match:
                     continue
                 
                 date = date_match.group(1)
-                rest = line[date_match.end():]
+                rest = line[date_match.end():].strip()
                 
-                # Find numbers (only 2 expected: amount and balance)
+                # Find all numbers (should be exactly 2: amount and balance)
                 numbers = re.findall(r'\\d+\\.?\\d*', rest)
                 
                 if len(numbers) < 2:
@@ -112,35 +143,41 @@ def parse(pdf_path: str) -> pd.DataFrame:
                 balance = float(numbers[-1])
                 amount = float(numbers[-2])
                 
-                # Get description (text before first number)
-                desc_end = rest.find(numbers[-2])
-                description = rest[:desc_end].strip()
+                # Description is everything before the first number
+                first_number_pos = rest.find(numbers[-2])
+                description = rest[:first_number_pos].strip()
                 
-                # Use expected CSV pattern if available
-                if expected_df is not None and len(all_transactions) < len(expected_df):
-                    expected_row = expected_df.iloc[len(all_transactions)]
-                    if pd.notna(expected_row['Debit Amt']) and expected_row['Debit Amt'] > 0:
-                        debit_amt = amount
-                        credit_amt = 0.0
-                    else:
-                        debit_amt = 0.0
-                        credit_amt = amount
+                # Classify transaction based on description
+                debit_amt = 0.0
+                credit_amt = 0.0
+                
+                # Credit transactions (money coming in)
+                if any(pattern in description for pattern in [
+                    'Salary Credit', 'Interest Credit', 'Cheque Deposit', 
+                    'Cash Deposit', 'NEFT Transfer From', 'Transfer From'
+                ]):
+                    credit_amt = amount
+                # Debit transactions (money going out)  
+                elif any(pattern in description for pattern in [
+                    'UPI Payment', 'IMPS UPI Payment', 'UPI QR Payment',
+                    'Card Swipe', 'Debit Card', 'Online Card Purchase', 
+                    'Credit Card Payment', 'EMI Auto Debit', 'Insurance Premium Auto Debit',
+                    'Service Charge', 'Bill Payment', 'NEFT Online',
+                    'ATM Cash Withdrawal', 'Mobile Recharge', 'UPI Transfer',
+                    'NEFT Transfer To', 'Fuel Purchase', 'Electricity', 'Utility'
+                ]):
+                    debit_amt = amount
                 else:
-                    # Fallback logic
-                    if 'Interest Credit' in description or 'Deposit' in description:
-                        debit_amt = 0.0
-                        credit_amt = amount
-                    else:
-                        debit_amt = amount
-                        credit_amt = 0.0
+                    # Default: assume debit if unclear
+                    debit_amt = amount
                 
-                all_transactions.append({
+                all_transactions.append({{
                     'Date': date,
                     'Description': description,
                     'Debit Amt': debit_amt,
                     'Credit Amt': credit_amt,
                     'Balance': balance
-                })
+                }})
     
     df = pd.DataFrame(all_transactions)
     
@@ -151,7 +188,7 @@ def parse(pdf_path: str) -> pd.DataFrame:
     else:
         df = pd.DataFrame(columns=['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance'])
     
-    print(f"Parsed {len(df)} transactions")
+    print(f"Parsed {{len(df)}} transactions")
     return df
 ```
 
@@ -167,7 +204,7 @@ Return ONLY the code above.
         return code.strip()
 
     def test_parser(self, state: AgentState) -> bool:
-        """Test the generated parser"""
+        """Test the generated parser with detailed comparison"""
         try:
             # Import and run the parser
             import importlib.util
@@ -187,30 +224,51 @@ Return ONLY the code above.
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
             
-            # Check if they match
-            if result_df.shape == expected_df.shape:
-                print(f"✅ Shape matches: {result_df.shape}")
-                
-                # Check values
-                if result_df.equals(expected_df):
-                    print("✅ All values match!")
-                    return True
-                else:
-                    print("❌ Values don't match")
-                    # Show first difference
-                    for i in range(min(5, len(result_df))):
-                        if not result_df.iloc[i].equals(expected_df.iloc[i]):
-                            print(f"Row {i} mismatch:")
-                            print(f"  Got:      {result_df.iloc[i].tolist()}")
-                            print(f"  Expected: {expected_df.iloc[i].tolist()}")
-                            break
-            else:
+            # Check shapes
+            if result_df.shape != expected_df.shape:
                 print(f"❌ Shape mismatch: {result_df.shape} != {expected_df.shape}")
+                return False
+                
+            print(f"✅ Shape matches: {result_df.shape}")
+            
+            # Check if they match exactly
+            if result_df.equals(expected_df):
+                print("✅ All values match perfectly!")
+                return True
+            
+            # Detailed comparison
+            print("❌ Values don't match - analyzing differences...")
+            
+            # Check each column
+            mismatches = 0
+            for col in result_df.columns:
+                if not result_df[col].equals(expected_df[col]):
+                    mismatches += 1
+                    print(f"  Column '{col}' has differences")
+            
+            # Show first few mismatched rows
+            print("\nFirst 5 mismatched rows:")
+            for i in range(min(5, len(result_df))):
+                if not result_df.iloc[i].equals(expected_df.iloc[i]):
+                    print(f"\nRow {i}:")
+                    print(f"  Result:   {result_df.iloc[i].tolist()}")
+                    print(f"  Expected: {expected_df.iloc[i].tolist()}")
+                    
+                    # Specific field analysis
+                    for col in result_df.columns:
+                        if result_df.iloc[i][col] != expected_df.iloc[i][col]:
+                            print(f"    {col}: {result_df.iloc[i][col]} != {expected_df.iloc[i][col]}")
+            
+            # Save debug CSVs
+            result_df.to_csv('debug_result.csv', index=False)
+            print(f"\n💾 Saved result to debug_result.csv for analysis")
             
             return False
             
         except Exception as e:
             print(f"❌ Test error: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def run(self, bank_name: str) -> bool:
@@ -227,13 +285,14 @@ Return ONLY the code above.
             state.pdf_path = Path(f"data/{bank_name}/{bank_name}_sample.pdf")
         
         print(f"\n🚀 Starting Bank Parser Agent for {bank_name.upper()}")
-        print(f"📊 Target: 100 transactions")
+        
+        previous_errors = ""
         
         for attempt in range(1, state.max_attempts + 1):
             print(f"\n📍 Attempt {attempt}/{state.max_attempts}")
             
-            # Generate code
-            code = self._call_llm(self.generate_code_prompt(state))
+            # Generate code with context from previous attempts
+            code = self._call_llm(self.generate_code_prompt(state, previous_errors))
             code = self.clean_code(code)
             
             if not code:
@@ -250,95 +309,13 @@ Return ONLY the code above.
                 print(f"\n🎉 SUCCESS! Parser works correctly!")
                 return True
             
+            # Collect error info for next attempt
+            if attempt < state.max_attempts:
+                previous_errors = "Previous attempt had debit/credit classification issues"
+            
             state.attempts = attempt
         
         print("\n❌ All attempts failed")
-        
-        # Save the working parser as fallback
-        print("\n📝 Saving working parser as fallback...")
-        working_code = '''import pandas as pd
-import pdfplumber
-import re
-
-def parse(pdf_path: str) -> pd.DataFrame:
-    """Parse ICICI bank statement PDF"""
-    
-    # Read expected pattern
-    try:
-        expected_df = pd.read_csv('data/icici/result.csv')
-    except:
-        expected_df = None
-    
-    all_transactions = []
-    
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if not text:
-                continue
-            
-            for line in text.split('\\n'):
-                if not line.strip() or 'ChatGPT' in line or 'Bannk' in line:
-                    continue
-                if line.startswith('Date Description'):
-                    continue
-                
-                date_match = re.match(r'^(\\d{2}-\\d{2}-\\d{4})\\s+', line)
-                if not date_match:
-                    continue
-                
-                date = date_match.group(1)
-                rest = line[date_match.end():]
-                
-                numbers = re.findall(r'\\d+\\.?\\d*', rest)
-                if len(numbers) < 2:
-                    continue
-                
-                balance = float(numbers[-1])
-                amount = float(numbers[-2])
-                
-                desc_end = rest.find(numbers[-2])
-                description = rest[:desc_end].strip()
-                
-                if expected_df is not None and len(all_transactions) < len(expected_df):
-                    expected_row = expected_df.iloc[len(all_transactions)]
-                    if pd.notna(expected_row['Debit Amt']) and expected_row['Debit Amt'] > 0:
-                        debit_amt = amount
-                        credit_amt = 0.0
-                    else:
-                        debit_amt = 0.0
-                        credit_amt = amount
-                else:
-                    debit_amt = amount
-                    credit_amt = 0.0
-                
-                all_transactions.append({
-                    'Date': date,
-                    'Description': description,
-                    'Debit Amt': debit_amt,
-                    'Credit Amt': credit_amt,
-                    'Balance': balance
-                })
-    
-    df = pd.DataFrame(all_transactions)
-    if len(df) > 0:
-        df = df[['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance']]
-        for col in ['Debit Amt', 'Credit Amt', 'Balance']:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-    else:
-        df = pd.DataFrame(columns=['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance'])
-    
-    print(f"Parsed {len(df)} transactions")
-    return df
-'''
-        
-        state.parser_path.write_text(working_code, encoding='utf-8')
-        print(f"💾 Saved fallback parser to {state.parser_path}")
-        
-        if self.test_parser(state):
-            print("✅ Fallback parser works!")
-            return True
-        
         return False
 
 def main():

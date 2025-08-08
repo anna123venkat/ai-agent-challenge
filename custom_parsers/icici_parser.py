@@ -3,14 +3,6 @@ import pdfplumber
 import re
 
 def parse(pdf_path: str) -> pd.DataFrame:
-    """Parse ICICI bank statement PDF"""
-    
-    # Read expected pattern
-    try:
-        expected_df = pd.read_csv('data/icici/result.csv')
-    except:
-        expected_df = None
-    
     all_transactions = []
     
     with pdfplumber.open(pdf_path) as pdf:
@@ -20,39 +12,59 @@ def parse(pdf_path: str) -> pd.DataFrame:
                 continue
             
             for line in text.split('\n'):
+                # Skip empty lines and footers
                 if not line.strip() or 'ChatGPT' in line or 'Bannk' in line:
                     continue
+                
+                # Skip header line
                 if line.startswith('Date Description'):
                     continue
                 
+                # Match date at start
                 date_match = re.match(r'^(\d{2}-\d{2}-\d{4})\s+', line)
                 if not date_match:
                     continue
                 
                 date = date_match.group(1)
-                rest = line[date_match.end():]
+                rest = line[date_match.end():].strip()
                 
+                # Find all numbers (should be exactly 2: amount and balance)
                 numbers = re.findall(r'\d+\.?\d*', rest)
+                
                 if len(numbers) < 2:
                     continue
                 
+                # Last is balance, second-to-last is amount
                 balance = float(numbers[-1])
                 amount = float(numbers[-2])
                 
-                desc_end = rest.find(numbers[-2])
-                description = rest[:desc_end].strip()
+                # Description is everything before the first number
+                first_number_pos = rest.find(numbers[-2])
+                description = rest[:first_number_pos].strip()
                 
-                if expected_df is not None and len(all_transactions) < len(expected_df):
-                    expected_row = expected_df.iloc[len(all_transactions)]
-                    if pd.notna(expected_row['Debit Amt']) and expected_row['Debit Amt'] > 0:
-                        debit_amt = amount
-                        credit_amt = 0.0
-                    else:
-                        debit_amt = 0.0
-                        credit_amt = amount
-                else:
+                # Classify transaction based on description
+                debit_amt = 0.0
+                credit_amt = 0.0
+                
+                # Credit transactions (money coming in)
+                if any(pattern in description for pattern in [
+                    'Salary Credit', 'Interest Credit', 'Cheque Deposit', 
+                    'Cash Deposit', 'NEFT Transfer From', 'Transfer From'
+                ]):
+                    credit_amt = amount
+                # Debit transactions (money going out)  
+                elif any(pattern in description for pattern in [
+                    'UPI Payment', 'IMPS UPI Payment', 'UPI QR Payment',
+                    'Card Swipe', 'Debit Card', 'Online Card Purchase', 
+                    'Credit Card Payment', 'EMI Auto Debit', 'Insurance Premium Auto Debit',
+                    'Service Charge', 'Bill Payment', 'NEFT Online',
+                    'ATM Cash Withdrawal', 'Mobile Recharge', 'UPI Transfer',
+                    'NEFT Transfer To', 'Fuel Purchase', 'Electricity', 'Utility'
+                ]):
                     debit_amt = amount
-                    credit_amt = 0.0
+                else:
+                    # Default: assume debit if unclear
+                    debit_amt = amount
                 
                 all_transactions.append({
                     'Date': date,
@@ -63,6 +75,7 @@ def parse(pdf_path: str) -> pd.DataFrame:
                 })
     
     df = pd.DataFrame(all_transactions)
+    
     if len(df) > 0:
         df = df[['Date', 'Description', 'Debit Amt', 'Credit Amt', 'Balance']]
         for col in ['Debit Amt', 'Credit Amt', 'Balance']:
