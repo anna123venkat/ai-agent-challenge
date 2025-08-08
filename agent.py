@@ -190,9 +190,9 @@ Always split on whitespace. Skip lines with less than 6 tokens.
 
             if not code.strip():
                 print("Empty code generated. Using fallback parser.")
-                code = '''
-            import pdfplumber
+                code = '''import fitz  # PyMuPDF
             import pandas as pd
+            import re
 
             def is_float(s):
                 try:
@@ -201,64 +201,50 @@ Always split on whitespace. Skip lines with less than 6 tokens.
                 except:
                     return False
 
-            def parse(pdf_path):
-                dates, descriptions, debit_amts, credit_amts, balances = [], [], [], [], []
+            def parse(pdf):
+                data = []
+                date_pattern = r"\d{2}-\d{2}-\d{4}"
 
-                with pdfplumber.open(pdf_path) as pdf:
-                    for page in pdf.pages:
-                        text = page.extract_text()
-                        if text:
-                            print("\n📄 Page Text Start\n", text, "\n📄 Page Text End\n")
+                with fitz.open(pdf) as doc:
+                    for page in doc:
+                        text = page.get_text()
                         lines = text.splitlines()
                         for line in lines:
+                            if not line.strip():
+                                continue
+
                             tokens = line.strip().split()
-                            if len(tokens) < 6:
-                                print("Skipping line: too few tokens")
+
+                            if len(tokens) < 4:
                                 continue
-                            if any(h in line.lower() for h in ["date", "description", "credit", "debit", "balance"]):
-                                print("Skipping line: contains header-like words")
+
+                            if not re.match(date_pattern, tokens[0]):
                                 continue
-                            if not re.match(r"\\d{2}-\\d{2}-\\d{4}", tokens[0]):
-                                print("Skipping line: first token not a date")
+
+                            float_tokens = [t for t in tokens if is_float(t)]
+                            if len(float_tokens) < 2:
                                 continue
-                            try:
-                                float_tokens = [t for t in tokens if is_float(t)]
-                                if len(float_tokens) < 3:
-                                    print("Skipping line: fewer than 3 float-compatible tokens")
-                                    continue
-                                balance = float_tokens[-1]
-                                credit = float_tokens[-2]
-                                debit = float_tokens[-3]
 
-                                # Find the indices of these values
-                                balance_idx = tokens.index(float_tokens[-1])
-                                credit_idx = tokens.index(float_tokens[-2])
-                                debit_idx = tokens.index(float_tokens[-3])
+                            date = tokens[0]
+                            balance = float(float_tokens[-1].replace(",", ""))
+                            amount = float(float_tokens[-2].replace(",", ""))
 
-                                desc_tokens = tokens[1:debit_idx]
-                                description = " ".join(desc_tokens)
+                            desc_start = 1
+                            desc_end = len(tokens) - len(float_tokens)
+                            description = " ".join(tokens[desc_start:desc_end])
 
-                                dates.append(tokens[0])
-                                descriptions.append(description)
-                                debit_amts.append(float(debit))
-                                credit_amts.append(float(credit))
-                                balances.append(float(balance))
+                            if any(x in description.lower() for x in ['credit', 'deposit', 'interest']):
+                                debit = 0.00
+                                credit = amount
+                            else:
+                                debit = amount
+                                credit = 0.00
 
-                                print(f"✅ Parsed line: {tokens[0]}, {description}, D:{debit}, C:{credit}, B:{balance}")
-                            except Exception as e:
-                                print("Skipping line due to error:", e)
+                            data.append([date, description, debit, credit, balance])
 
-                min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
-                df = pd.DataFrame({
-                    'Date': dates[:min_len],
-                    'Description': descriptions[:min_len],
-                    'Debit Amt': debit_amts[:min_len],
-                    'Credit Amt': credit_amts[:min_len],
-                    'Balance': balances[:min_len]
-                })
+                df = pd.DataFrame(data, columns=["Date", "Description", "Debit Amt", "Credit Amt", "Balance"])
                 print(f"✅ Parsed {len(df)} transactions")
-                return df
-            '''
+                return df'''
 
             code = code.strip().replace('"""', '').replace("'''", '').replace('`', '')
 
