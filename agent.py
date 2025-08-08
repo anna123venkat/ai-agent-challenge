@@ -42,7 +42,7 @@ class BankParserAgent:
         if not api_key:
             raise ValueError("GROQ_API_KEY missing in .env")
         self.llm = Groq(api_key=api_key)
-        print("\u2705 Agent initialized with Groq")
+        print("✅ Agent initialized with Groq")
 
     def _call_llm(self, prompt: str) -> str:
         try:
@@ -81,17 +81,14 @@ IMPORTANT IMPLEMENTATION RULES:
 
 1. Before creating the DataFrame, ensure all extracted lists (dates, descriptions, debit_amts, credit_amts, balances) are trimmed to the same minimum length:
 
-```python
 min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
 dates = dates[:min_len]
 descriptions = descriptions[:min_len]
 debit_amts = debit_amts[:min_len]
 credit_amts = credit_amts[:min_len]
 balances = balances[:min_len]
-```
 
 2. Then create the DataFrame with:
-```python
 df = pd.DataFrame({
     'Date': dates,
     'Description': descriptions,
@@ -100,7 +97,6 @@ df = pd.DataFrame({
     'Balance': balances
 })
 return df
-```
 '''
 
         return f"""
@@ -128,13 +124,22 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
             parser_path=parser_path
         )
 
-        print(f"\n\U0001F680 Starting Bank Parser Agent for {bank_name.upper()}")
-        print("\U0001F4CA Expected: (100, 5) shape")
+        print(f"\n🚀 Starting Bank Parser Agent for {bank_name.upper()}")
+        print("📊 Expected: (100, 5) shape")
 
         for attempt in range(1, state.max_attempts + 1):
-            print(f"\n\ud83d\udccd Attempt {attempt}/{state.max_attempts}")
+            print(f"\n📍 Attempt {attempt}/{state.max_attempts}")
             prompt = self.generate_code_prompt(state, analysis={})
             code = self._call_llm(prompt)
+
+            # 🧼 Sanitize: Remove ```python ... ``` if present
+            if code.startswith("```"):
+                code = code.strip()
+                if code.startswith("```python"):
+                    code = code[len("```python"):].strip()
+                if code.endswith("```"):
+                    code = code[:-3].strip()
+
             if not code.strip():
                 print("Empty code generated. Skipping.")
                 continue
@@ -143,7 +148,8 @@ KEY INSIGHT: The CSV has NaN values! Each transaction has EITHER debit OR credit
                 parser_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(parser_path, 'w', encoding='utf-8') as f:
                     f.write(code)
-                print(f"\ud83d\udccf Saved parser to {parser_path}")
+                print(f"💾 Saved parser to {parser_path}")
+
             except Exception as e:
                 print(f"❌ Error saving parser: {e}")
                 continue
