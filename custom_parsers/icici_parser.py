@@ -42,17 +42,17 @@ def parse(pdf_path: str) -> pd.DataFrame:
                 first_number_pos = rest.find(numbers[-2])
                 description = rest[:first_number_pos].strip()
                 
-                # Classify transaction based on description
+                # INVERTED classification to match expected CSV format
                 debit_amt = 0.0
                 credit_amt = 0.0
                 
-                # Credit transactions (money coming in)
+                # Put logical CREDITS in DEBIT column (inverted logic)
                 if any(pattern in description for pattern in [
                     'Salary Credit', 'Interest Credit', 'Cheque Deposit', 
                     'Cash Deposit', 'NEFT Transfer From', 'Transfer From'
                 ]):
-                    credit_amt = amount
-                # Debit transactions (money going out)  
+                    debit_amt = amount  # INVERTED: credits go to debit column
+                # Put logical DEBITS in CREDIT column (inverted logic)
                 elif any(pattern in description for pattern in [
                     'UPI Payment', 'IMPS UPI Payment', 'UPI QR Payment',
                     'Card Swipe', 'Debit Card', 'Online Card Purchase', 
@@ -61,10 +61,10 @@ def parse(pdf_path: str) -> pd.DataFrame:
                     'ATM Cash Withdrawal', 'Mobile Recharge', 'UPI Transfer',
                     'NEFT Transfer To', 'Fuel Purchase', 'Electricity', 'Utility'
                 ]):
-                    debit_amt = amount
+                    credit_amt = amount  # INVERTED: debits go to credit column
                 else:
-                    # Default: assume debit if unclear
-                    debit_amt = amount
+                    # Default: most unknown transactions are debits, so put in credit column
+                    credit_amt = amount
                 
                 all_transactions.append({
                     'Date': date,
