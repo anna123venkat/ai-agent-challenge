@@ -22,13 +22,16 @@ def parse(pdf_path):
                     continue
                 date = parts[0]
                 description = ' '.join(parts[1:-3])
-                amounts = [float(x.replace(',', '')) for x in parts[-3:]]
-                debit_amt, credit_amt, balance = amounts
+                amounts = list(map(float, parts[-3:]))
+                if amounts[0] > 0:
+                    debit_amts.append(amounts[0])
+                    credit_amts.append(0)
+                else:
+                    debit_amts.append(0)
+                    credit_amts.append(-amounts[0])
+                balances.append(amounts[1])
                 dates.append(date)
                 descriptions.append(description)
-                debit_amts.append(debit_amt if debit_amt > 0 else 0)
-                credit_amts.append(credit_amt if credit_amt > 0 else 0)
-                balances.append(balance)
     
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]
