@@ -2,33 +2,36 @@ import pdfplumber
 import pandas as pd
 import re
 
-def parse(pdf_path):
+def parse(pdf_file):
     dates = []
     descriptions = []
     debit_amts = []
     credit_amts = []
     balances = []
     
-    with pdfplumber.open(pdf_path) as pdf:
+    with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             lines = text.split('\n')
             for line in lines:
                 line = line.strip()
-                if not line or 'Powered by' in line:
+                if not line or len(line) < 10:
                     continue
                 parts = re.split(r'\s{2,}', line)
-                if len(parts) < 5:
+                if len(parts) < 4:
                     continue
                 date = parts[0]
-                description = ' '.join(parts[1:-3])
-                amounts = [float(x.replace(',', '')) for x in parts[-3:]]
-                debit_amt, credit_amt, balance = amounts
+                desc = ' '.join(parts[1:-3])
+                amounts = [float(x) for x in parts[-3:]]
+                if amounts[0] > 0:
+                    debit_amts.append(amounts[0])
+                    credit_amts.append(0)
+                else:
+                    debit_amts.append(0)
+                    credit_amts.append(-amounts[0])
+                balances.append(amounts[1])
                 dates.append(date)
-                descriptions.append(description)
-                debit_amts.append(debit_amt if debit_amt > 0 else 0)
-                credit_amts.append(credit_amt if credit_amt > 0 else 0)
-                balances.append(balance)
+                descriptions.append(desc)
     
     min_len = min(len(dates), len(descriptions), len(debit_amts), len(credit_amts), len(balances))
     dates = dates[:min_len]

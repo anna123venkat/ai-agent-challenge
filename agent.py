@@ -200,14 +200,19 @@ CRITICAL DISCOVERY from CSV analysis:
                 df = df.reset_index(drop=True)
                 expected_df = expected_df.reset_index(drop=True)
 
-                # Coerce numeric types
+                # Coerce numeric types and fill NaNs with 0.0
                 for col in ['Debit Amt', 'Credit Amt', 'Balance']:
                     if col in df.columns and col in expected_df.columns:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                        expected_df[col] = pd.to_numeric(expected_df[col], errors='coerce')
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+                        expected_df[col] = pd.to_numeric(expected_df[col], errors='coerce').fillna(0.0)
 
                 # Reorder columns to match
                 df = df[expected_df.columns]
+
+                # Print debug info
+                print(f"🔍 Agent shape: {df.shape}, Expected shape: {expected_df.shape}")
+                print("🔍 Agent head:\\n", df.head())
+                print("🔍 Expected head:\\n", expected_df.head())
 
                 if df.equals(expected_df):
                     print("✅ Parser output matches expected CSV")
@@ -221,7 +226,8 @@ CRITICAL DISCOVERY from CSV analysis:
                         print(f"⚠️ Unable to compare: {e}")
                         print("Agent output columns:", df.columns.tolist())
                         print("Expected columns:", expected_df.columns.tolist())
-)
+
+
             except Exception as e:
                 print(f"Agent error: {e}")
 
